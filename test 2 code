@@ -1,0 +1,124 @@
+import sqlite3
+import os
+from datetime import datetime, timedelta
+
+# File path for SQLite database (it will be created in the current directory)
+DB_FILE = 'eco_friendly_database.db'
+
+def create_db():
+    """Create the SQLite database and a table with efficient schema and indexing."""
+    if not os.path.exists(DB_FILE):
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        # Create a table to store user data (with indexing for efficiency)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_data (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Create an index on the 'created_at' column for efficient queries
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON user_data(created_at)')
+
+        conn.commit()
+        conn.close()
+        print("Database and table created successfully.")
+    else:
+        print("Database already exists.")
+
+def add_user(name, email):
+    """Add a user to the database with optimized storage."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    # Insert user data into the database
+    cursor.execute('''
+        INSERT INTO user_data (name, email)
+        VALUES (?, ?)
+    ''', (name, email))
+
+    conn.commit()
+    conn.close()
+    print(f"User {name} added successfully.")
+
+def get_recent_users(days=30):
+    """Efficient query to get users created within the last 'days' days."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    # Calculate the date 'days' days ago
+    threshold_date = datetime.now() - timedelta(days=days)
+    
+    # Query for users created within the last 'days' days
+    cursor.execute('''
+        SELECT id, name, email, created_at FROM user_data
+        WHERE created_at >= ?
+        ORDER BY created_at DESC
+    ''', (threshold_date,))
+    
+    users = cursor.fetchall()
+    conn.close()
+
+    return users
+
+def archive_old_data(days=365):
+    """Archiving old data to a separate storage (e.g., CSV or backup database) and delete."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    # Calculate the date 'days' days ago (for archiving)
+    threshold_date = datetime.now() - timedelta(days=days)
+    
+    # Select users older than the specified threshold
+    cursor.execute('''
+        SELECT id, name, email, created_at FROM user_data
+        WHERE created_at < ?
+    ''', (threshold_date,))
+    
+    old_users = cursor.fetchall()
+
+    # If there are old users, archive and delete them
+    if old_users:
+        # Archive old data (example: writing to a CSV file)
+        with open('archived_data.csv', 'w') as f:
+            f.write("id,name,email,created_at\n")
+            for user in old_users:
+                f.write(f"{user[0]},{user[1]},{user[2]},{user[3]}\n")
+        
+        # Delete old users from the main database
+        cursor.execute('''
+            DELETE FROM user_data
+            WHERE created_at < ?
+        ''', (threshold_date,))
+        
+        conn.commit()
+
+        print(f"Archived and deleted {len(old_users)} old users.")
+    else:
+        print("No old data to archive.")
+    
+    conn.close()
+
+def main():
+    # Create database and table if not exists
+    create_db()
+
+    # Add some users (example)
+    add_user('Alice', 'alice@example.com')
+    add_user('Bob', 'bob@example.com')
+
+    # Get recent users (last 30 days)
+    recent_users = get_recent_users()
+    print("Recent users (last 30 days):")
+    for user in recent_users:
+        print(user)
+
+    # Archive old data (older than 1 year) and clean up the database
+    archive_old_data()
+
+if __name__ == '__main__':
+    main()
