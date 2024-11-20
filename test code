@@ -1,0 +1,27 @@
+import sqlite3
+import os
+from datetime import datetime, timedelta
+
+# File path for SQLite database (it will be created in the current directory)
+DB_FILE = 'eco_friendly_database.db'
+
+def create_db():
+    """Create the SQLite database and a table with efficient schema and indexing."""
+    if not os.path.exists(DB_FILE):
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        # Create a table to store user data (with indexing for efficiency)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_data (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Create an index on the 'created_at' column for efficient queries
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON user_data(created_at)')
+
+        conn.commit()
